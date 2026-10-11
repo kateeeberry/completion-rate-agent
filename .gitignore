@@ -1,0 +1,25 @@
+# Секрети
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Звіти розвідки схеми та будь-які вигрузки даних не комітимо
+schema_report.md
+reports/
+*.csv
+*.xlsx
+
+# Редактори / ОС
+.vscode/
+.idea/
+.DS_Store
+
+.agents/skills/developing-with-streamlit
+.claude/skills/developing-with-streamlit
+values_report.md

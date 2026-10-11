@@ -1,0 +1,63 @@
+# Semantic layer: єдине місце, де записані бізнес-визначення метрик.
+# Визначення "Completed" обрала власниця проєкту (варіант A). Змінити його = змінити
+# `sql_condition` нижче, код Python правити не треба. Тести перевірять, що все працює.
+#
+# Джерело: навчальна БД `coursera_capstone` (PostgreSQL, read-only). Це навчальні дані,
+# їх не змішують з робочими даними EgoGames.
+version: 1
+
+grain: "один рядок public.enrollments = один запис студента на курс (enrollment), не студент"
+
+metrics:
+  enrollments_total:
+    label: "Записів на курси"
+    description: "Кількість рядків у public.enrollments."
+    sql: "COUNT(*)"
+
+  completed_enrollment:
+    label: "Завершений запис (Completed)"
+    description: >
+      Запис вважається завершеним, якщо funnel_state = 'certified'
+      (тобто студент отримав сертифікат; is_certified = 1).
+      Обрано варіант A: у розвідці всі 4 555 таких записів мають і completed_at, і progress_pct >= 100,
+      тому ознаки збігаються. Альтернативи, які НЕ використовуються:
+      B) completed_at IS NOT NULL (4 911 записів), C) progress_pct = 100 (4 541 запис).
+    sql_condition: "e.funnel_state = 'certified'"
+
+  completion_rate:
+    label: "Completion rate"
+    description: "Частка завершених записів від усіх записів, у відсотках: completed / enrollments * 100."
+
+  unique_learners:
+    label: "Унікальних студентів"
+    description: "COUNT(DISTINCT user_id) у public.enrollments."
+
+  completed_at_without_certificate:
+    label: "Є completed_at, але немає сертифіката"
+    description: >
+      Контрольна метрика якості даних: записи з заповненим completed_at, які не є завершеними
+      за визначенням вище. Показує, наскільки відрізнялися б результати за варіантом B.
+    sql: "completed_at IS NOT NULL AND NOT (completed_enrollment)"
+
+dimensions:
+  # ім'я для користувача -> стовпець у public.dim_course (аліас c)
+  level: "c.level"
+  domain: "c.domain"
+  partner: "c.partner"
+
+funnel:
+  # Порядок етапів воронки: припущення за мінімальним progress_pct у кожному стані
+  # (registered 0, viewed 7.7, explored 50, certified 100). Не підтверджено документацією БД.
+  order: ["registered", "viewed", "explored", "certified"]
+
+defaults:
+  top_n: 10
+  # Поріг для рейтингів: курси/групи з меншою кількістю записів не показуємо,
+  # бо 1 запис із 1 дає "100%". Значення 30 — робоче припущення, його можна змінити.
+  min_enrollments_for_ranking: 30
+
+known_data_issues:
+  - "progress_pct має значення до 104 (понад 100%); у варіанті A це поле не використовується."
+  - "enrolled_at має формат ДД.ММ.РРРР, completed_at має формат РРРР-ММ-ДД, обидва типу text; у метриках дати не використовуються."
+  - "356 записів мають completed_at, але не сертифіковані (355 із них з progress_pct < 100)."
+  - "40 платежів у payments без користувача в users; payments у цьому проєкті не використовуються."
